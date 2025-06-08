@@ -201,7 +201,6 @@ class Tetris {
     playerRotate(dir) {
         const pos = this.player.pos.x;
         let offset = 1;
-        const originalMatrix = this.player.matrix.map(row => [...row]);
         
         this.rotate(this.player.matrix, dir);
         while (this.collide(this.arena, this.player)) {
@@ -223,7 +222,6 @@ class Tetris {
     
     arenaSweep() {
         let rowCount = 0;
-        let linesCleared = [];
         
         for (let y = this.arena.length - 1; y > 0; --y) {
             let fullRow = true;
@@ -235,7 +233,6 @@ class Tetris {
             }
             
             if (fullRow) {
-                linesCleared.push(y);
                 const row = this.arena.splice(y, 1)[0].fill(0);
                 this.arena.unshift(row);
                 ++y;
@@ -248,7 +245,7 @@ class Tetris {
             this.lines += rowCount;
             
             let baseScore = 0;
-            let isTSpin = this.checkTSpin(linesCleared, rowCount);
+            let isTSpin = this.checkTSpin(rowCount);
             
             if (isTSpin) {
                 switch (rowCount) {
@@ -279,11 +276,11 @@ class Tetris {
         this.dropInterval = Math.max(100, 1000 - (this.level - 1) * 100);
     }
     
-    checkTSpin(linesCleared, rowCount) {
+    checkTSpin(rowCount) {
         if (!this.lastRotation || rowCount === 0) return false;
         
         const piece = this.lastRotation.piece;
-        if (!this.isTetromino(piece, 'T')) return false;
+        if (!this.isTetromino(piece)) return false;
         
         const pos = this.lastRotation.pos;
         const corners = [
@@ -305,7 +302,7 @@ class Tetris {
         return filledCorners >= 3;
     }
     
-    isTetromino(matrix, type) {
+    isTetromino(matrix) {
         const tPiece = this.createPiece('T');
         
         for (let rotation = 0; rotation < 4; rotation++) {
@@ -347,7 +344,13 @@ class Tetris {
     }
     
     draw() {
-        this.context.fillStyle = '#000';
+        // グラデーション背景
+        const gradient = this.context.createLinearGradient(0, 0, 0, this.canvas.height);
+        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(0.5, '#16213e');
+        gradient.addColorStop(1, '#0f3460');
+        
+        this.context.fillStyle = gradient;
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         this.drawMatrix(this.arena, {x: 0, y: 0});
@@ -359,18 +362,71 @@ class Tetris {
         matrix.forEach((row, y) => {
             row.forEach((value, x) => {
                 if (value !== 0) {
-                    this.context.fillStyle = this.colors[value];
-                    this.context.fillRect(x * 30 + offset.x * 30,
-                                        y * 30 + offset.y * 30,
-                                        30, 30);
-                    this.context.strokeStyle = '#000';
-                    this.context.lineWidth = 2;
-                    this.context.strokeRect(x * 30 + offset.x * 30,
-                                          y * 30 + offset.y * 30,
-                                          30, 30);
+                    this.drawGlossyBlock(
+                        x * 30 + offset.x * 30,
+                        y * 30 + offset.y * 30,
+                        30, 30,
+                        this.colors[value]
+                    );
                 }
             });
         });
+    }
+    
+    drawGlossyBlock(x, y, width, height, color) {
+        const ctx = this.context;
+        
+        // メインブロック（グラデーション）
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, this.lightenColor(color, 40));
+        gradient.addColorStop(0.3, color);
+        gradient.addColorStop(0.7, color);
+        gradient.addColorStop(1, this.darkenColor(color, 30));
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, width, height);
+        
+        // ハイライト（上部と左側）
+        ctx.fillStyle = this.lightenColor(color, 60);
+        ctx.fillRect(x + 2, y + 2, width - 4, 3); // 上部ハイライト
+        ctx.fillRect(x + 2, y + 2, 3, height - 4); // 左側ハイライト
+        
+        // 影（下部と右側）
+        ctx.fillStyle = this.darkenColor(color, 50);
+        ctx.fillRect(x + 3, y + height - 3, width - 3, 3); // 下部影
+        ctx.fillRect(x + width - 3, y + 3, 3, height - 3); // 右側影
+        
+        // 外枠
+        ctx.strokeStyle = this.darkenColor(color, 60);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+        
+        // 内側のハイライトライン
+        ctx.strokeStyle = this.lightenColor(color, 80);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
+    }
+    
+    lightenColor(color, percent) {
+        const num = parseInt(color.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+    
+    darkenColor(color, percent) {
+        const num = parseInt(color.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) - amt;
+        const G = (num >> 8 & 0x00FF) - amt;
+        const B = (num & 0x0000FF) - amt;
+        return "#" + (0x1000000 + (R > 255 ? 255 : R < 0 ? 0 : R) * 0x10000 +
+            (G > 255 ? 255 : G < 0 ? 0 : G) * 0x100 +
+            (B > 255 ? 255 : B < 0 ? 0 : B)).toString(16).slice(1);
     }
     
     drawGhost() {
@@ -387,18 +443,35 @@ class Tetris {
         ghost.matrix.forEach((row, y) => {
             row.forEach((value, x) => {
                 if (value !== 0) {
-                    this.context.fillStyle = this.colors[value] + '33';
-                    this.context.fillRect((x + ghost.pos.x) * 30,
-                                        (y + ghost.pos.y) * 30,
-                                        30, 30);
-                    this.context.strokeStyle = this.colors[value] + '88';
-                    this.context.lineWidth = 1;
-                    this.context.strokeRect((x + ghost.pos.x) * 30,
-                                          (y + ghost.pos.y) * 30,
-                                          30, 30);
+                    this.drawGhostBlock(
+                        (x + ghost.pos.x) * 30,
+                        (y + ghost.pos.y) * 30,
+                        30, 30,
+                        this.colors[value]
+                    );
                 }
             });
         });
+    }
+    
+    drawGhostBlock(x, y, width, height, color) {
+        const ctx = this.context;
+        
+        // 半透明のグラデーション
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, this.lightenColor(color, 40) + '40');
+        gradient.addColorStop(0.5, color + '20');
+        gradient.addColorStop(1, this.darkenColor(color, 30) + '40');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, width, height);
+        
+        // 半透明の外枠
+        ctx.strokeStyle = color + '60';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(x, y, width, height);
+        ctx.setLineDash([]);
     }
     
     drawHold() {
@@ -406,7 +479,14 @@ class Tetris {
         if (!holdCanvas) return;
         
         const holdContext = holdCanvas.getContext('2d');
-        holdContext.fillStyle = '#000';
+        
+        // グラデーション背景
+        const gradient = holdContext.createLinearGradient(0, 0, 0, holdCanvas.height);
+        gradient.addColorStop(0, '#2a2a3e');
+        gradient.addColorStop(0.5, '#26314e');
+        gradient.addColorStop(1, '#1f4570');
+        
+        holdContext.fillStyle = gradient;
         holdContext.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
         
         if (this.holdPiece) {
@@ -416,23 +496,79 @@ class Tetris {
             this.holdPiece.forEach((row, y) => {
                 row.forEach((value, x) => {
                     if (value !== 0) {
-                        holdContext.fillStyle = this.canHold ? this.colors[value] : this.colors[value] + '88';
-                        holdContext.fillRect((x + offsetX) * 30,
-                                           (y + offsetY) * 30,
-                                           30, 30);
-                        holdContext.strokeStyle = '#000';
-                        holdContext.lineWidth = 2;
-                        holdContext.strokeRect((x + offsetX) * 30,
-                                             (y + offsetY) * 30,
-                                             30, 30);
+                        this.drawGlossyBlockOnCanvas(
+                            holdContext,
+                            (x + offsetX) * 30,
+                            (y + offsetY) * 30,
+                            30, 30,
+                            this.colors[value],
+                            this.canHold ? 1 : 0.5
+                        );
                     }
                 });
             });
         }
     }
+    
+    drawGlossyBlockOnCanvas(ctx, x, y, width, height, color, opacity = 1) {
+        // メインブロック（グラデーション）
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        const lighterColor = this.lightenColor(color, 40);
+        const darkerColor = this.darkenColor(color, 30);
+        
+        if (opacity < 1) {
+            const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+            gradient.addColorStop(0, lighterColor + alpha);
+            gradient.addColorStop(0.3, color + alpha);
+            gradient.addColorStop(0.7, color + alpha);
+            gradient.addColorStop(1, darkerColor + alpha);
+        } else {
+            gradient.addColorStop(0, lighterColor);
+            gradient.addColorStop(0.3, color);
+            gradient.addColorStop(0.7, color);
+            gradient.addColorStop(1, darkerColor);
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, width, height);
+        
+        if (opacity >= 0.7) {
+            // ハイライト（上部と左側）
+            const highlightAlpha = opacity < 1 ? Math.round(opacity * 180).toString(16).padStart(2, '0') : '';
+            ctx.fillStyle = this.lightenColor(color, 60) + highlightAlpha;
+            ctx.fillRect(x + 2, y + 2, width - 4, 3); // 上部ハイライト
+            ctx.fillRect(x + 2, y + 2, 3, height - 4); // 左側ハイライト
+            
+            // 影（下部と右側）
+            const shadowAlpha = opacity < 1 ? Math.round(opacity * 200).toString(16).padStart(2, '0') : '';
+            ctx.fillStyle = this.darkenColor(color, 50) + shadowAlpha;
+            ctx.fillRect(x + 3, y + height - 3, width - 3, 3); // 下部影
+            ctx.fillRect(x + width - 3, y + 3, 3, height - 3); // 右側影
+        }
+        
+        // 外枠
+        const borderAlpha = opacity < 1 ? Math.round(opacity * 255).toString(16).padStart(2, '0') : '';
+        ctx.strokeStyle = this.darkenColor(color, 60) + borderAlpha;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+        
+        if (opacity >= 0.7) {
+            // 内側のハイライトライン
+            const innerAlpha = opacity < 1 ? Math.round(opacity * 150).toString(16).padStart(2, '0') : '';
+            ctx.strokeStyle = this.lightenColor(color, 80) + innerAlpha;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
+        }
+    }
 
     drawNext() {
-        this.nextContext.fillStyle = '#000';
+        // グラデーション背景
+        const gradient = this.nextContext.createLinearGradient(0, 0, 0, this.nextCanvas.height);
+        gradient.addColorStop(0, '#2a2a3e');
+        gradient.addColorStop(0.5, '#26314e');
+        gradient.addColorStop(1, '#1f4570');
+        
+        this.nextContext.fillStyle = gradient;
         this.nextContext.fillRect(0, 0, this.nextCanvas.width, this.nextCanvas.height);
         
         if (this.nextPiece) {
@@ -442,15 +578,14 @@ class Tetris {
             this.nextPiece.forEach((row, y) => {
                 row.forEach((value, x) => {
                     if (value !== 0) {
-                        this.nextContext.fillStyle = this.colors[value];
-                        this.nextContext.fillRect((x + offsetX) * 30,
-                                                (y + offsetY) * 30,
-                                                30, 30);
-                        this.nextContext.strokeStyle = '#000';
-                        this.nextContext.lineWidth = 2;
-                        this.nextContext.strokeRect((x + offsetX) * 30,
-                                                  (y + offsetY) * 30,
-                                                  30, 30);
+                        this.drawGlossyBlockOnCanvas(
+                            this.nextContext,
+                            (x + offsetX) * 30,
+                            (y + offsetY) * 30,
+                            30, 30,
+                            this.colors[value],
+                            1
+                        );
                     }
                 });
             });
@@ -529,30 +664,30 @@ class Tetris {
         document.addEventListener('keydown', event => {
             if (this.gameOver) return;
             
-            switch (event.keyCode) {
-                case 37: // Left
+            switch (event.code) {
+                case 'ArrowLeft':
                     this.playerMove(-1);
                     break;
-                case 39: // Right
+                case 'ArrowRight':
                     this.playerMove(1);
                     break;
-                case 40: // Down
+                case 'ArrowDown':
                     this.playerDrop();
                     break;
-                case 38: // Up (Rotate)
+                case 'ArrowUp':
                     this.playerRotate(1);
                     break;
-                case 32: // Space (Hard drop)
+                case 'Space':
                     event.preventDefault();
                     this.hardDrop();
                     break;
-                case 80: // P (Pause)
+                case 'KeyP':
                     this.paused = !this.paused;
                     if (!this.paused) {
                         this.update();
                     }
                     break;
-                case 67: // C (Hold)
+                case 'KeyC':
                     this.holdCurrentPiece();
                     break;
             }
