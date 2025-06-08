@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        .game-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        
+        canvas {
+            border: 2px solid #fff;
+            background-color: #222;
+        }
+        
+        .game-info {
+            color: #fff;
+            min-width: 200px;
+        }
+        
+        .score {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+        
+        .controls h3 {
+            margin-bottom: 10px;
+        }
+        
+        .next-piece {
+            margin-top: 20px;
+        }
+        
+        .next-canvas {
+            border: 1px solid #fff;
+            background-color: #333;
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+        }
+        
+        .restart-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        
+        .restart-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="tetris" width="300" height="600"></canvas>
+        <div class="game-info">
+            <div class="score">
+                <div>スコア: <span id="score">0</span></div>
+                <div>ライン: <span id="lines">0</span></div>
+                <div>レベル: <span id="level">1</span></div>
+            </div>
+            
+            <div class="next-piece">
+                <h3>次のピース</h3>
+                <canvas id="next" width="120" height="120"></canvas>
+            </div>
+            
+            <div class="controls">
+                <h3>操作方法</h3>
+                <div>← → : 左右移動</div>
+                <div>↓ : 下降加速</div>
+                <div>↑ : 回転</div>
+                <div>スペース : ハードドロップ</div>
+                <div>P : 一時停止</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="gameOver" class="game-over">
+        <h2>ゲームオーバー</h2>
+        <p>最終スコア: <span id="finalScore">0</span></p>
+        <button class="restart-btn" onclick="restartGame()">もう一度プレイ</button>
+    </div>
+
+    <script src="tetris.js"></script>
+</body>
+</html>
